@@ -7,9 +7,9 @@ print_step() { echo ""; echo "▶ $1"; }
 
 install_or_upgrade() {
   local cask="$1"
-  if brew list --cask "$cask" &>/dev/null 2>&1; then
+  if brew list --cask "$cask" &>/dev/null; then
     echo "  ↑ Updating $cask..."
-    brew upgrade --cask "$cask" || echo "  ✓ $cask is already up to date"
+    brew upgrade --cask "$cask"
   else
     echo "  + Installing $cask..."
     brew install --cask "$cask"
@@ -36,10 +36,13 @@ if ! command -v brew &>/dev/null; then
   echo "  Installing Homebrew..."
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-  # Add Homebrew to PATH for Apple Silicon Macs
+  # Add Homebrew to PATH for Apple Silicon Macs and persist to shell profile
   if [[ -f /opt/homebrew/bin/brew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
+    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
   fi
+
+  brew update
 else
   echo "  Updating Homebrew..."
   brew update
