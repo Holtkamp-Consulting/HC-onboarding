@@ -8,8 +8,12 @@ print_step() { echo ""; echo "▶ $1"; }
 install_or_upgrade() {
   local cask="$1"
   if brew list --cask "$cask" &>/dev/null; then
-    echo "  ↑ Updating $cask..."
-    brew upgrade --cask --overwrite "$cask" || true
+    if [[ -n "$(brew outdated --cask "$cask" 2>/dev/null)" ]]; then
+      echo "  ↑ Updating $cask..."
+      brew upgrade --cask --overwrite "$cask" || true
+    else
+      echo "  ✓ $cask already up to date"
+    fi
   else
     echo "  + Installing $cask..."
     brew install --cask --overwrite "$cask"
