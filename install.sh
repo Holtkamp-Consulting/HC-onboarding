@@ -16,7 +16,18 @@ install_or_upgrade() {
     fi
   else
     echo "  + Installing $cask..."
-    brew install --cask --force "$cask"
+    local output
+    if ! output=$(brew install --cask "$cask" 2>&1); then
+      local app_path
+      app_path=$(echo "$output" | grep -o "'/Applications/[^']*'" | tr -d "'")
+      if [[ -n "$app_path" ]]; then
+        echo "  ✗ Removing existing $(basename "$app_path")..."
+        sudo rm -rf "$app_path" || true
+        brew install --cask "$cask" || echo "  ! Failed to install $cask, skipping." >&2
+      else
+        echo "  ! Failed to install $cask, skipping." >&2
+      fi
+    fi
   fi
 }
 
