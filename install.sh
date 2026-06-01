@@ -10,13 +10,13 @@ install_or_upgrade() {
   if brew list --cask "$cask" &>/dev/null; then
     if [[ -n "$(brew outdated --cask "$cask" 2>/dev/null)" ]]; then
       echo "  ↑ Updating $cask..."
-      brew upgrade --cask --overwrite "$cask" || true
+      brew upgrade --cask "$cask" || true
     else
       echo "  ✓ $cask already up to date"
     fi
   else
     echo "  + Installing $cask..."
-    brew install --cask --overwrite "$cask"
+    brew install --cask --force "$cask"
   fi
 }
 
