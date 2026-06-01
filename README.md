@@ -5,7 +5,7 @@ Installs all tools needed for a new employee's Mac in one command.
 ## Usage
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<ORG>/HC-onboarding/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Holtkamp-Consulting/HC-onboarding/main/install.sh | bash
 ```
 
 ## What gets installed
