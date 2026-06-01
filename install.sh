@@ -9,7 +9,7 @@ install_or_upgrade() {
   local cask="$1"
   if brew list --cask "$cask" &>/dev/null; then
     echo "  ↑ Updating $cask..."
-    brew upgrade --cask "$cask"
+    brew upgrade --cask "$cask" || true
   else
     echo "  + Installing $cask..."
     brew install --cask "$cask"
