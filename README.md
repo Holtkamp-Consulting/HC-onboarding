@@ -4,19 +4,10 @@ Installs all tools needed for a new employee's Mac in one command.
 
 The installer runs on macOS, asks for administrator access once, installs
 Homebrew if needed, updates Homebrew, and then installs or upgrades all listed
-apps via Homebrew Cask. Apple's Command Line Tools must be installed before
-running the onboarding installer.
+apps via Homebrew Cask. If Apple's Command Line Tools are missing, the script
+starts Apple's installer automatically.
 
 ## Usage
-
-Install Apple's Command Line Tools first:
-
-```bash
-xcode-select --install
-```
-
-After the Command Line Tools installation has completed, run the onboarding
-installer:
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Holtkamp-Consulting/HC-onboarding/main/install.sh)"
@@ -27,7 +18,7 @@ installer:
 - macOS
 - Internet connection
 - Administrator password for `sudo`
-- Apple Command Line Tools
+- Current macOS software updates installed
 
 An Apple ID is not required for the normal installation flow. If Apple's
 Command Line Tools cannot be installed through Software Update, manually
@@ -60,8 +51,8 @@ versions are available.
 
 ### Command Line Tools cannot be installed
 
-Homebrew requires Apple's Command Line Tools. On a fresh Mac, macOS usually
-opens the Command Line Tools installer automatically. If macOS shows:
+Homebrew requires Apple's Command Line Tools. On a fresh Mac, the onboarding
+script opens the Command Line Tools installer automatically. If macOS shows:
 
 ```text
 The software cannot be installed because it is currently not available from the Software Update server.
@@ -73,14 +64,20 @@ or, in German:
 Die Software kann nicht installiert werden, da sie derzeit auf dem Softwareupdateserver nicht verfügbar ist.
 ```
 
-install pending macOS updates first, then retry:
+this usually means the Mac is missing current macOS software updates. Install
+all pending updates in **System Settings → General → Software Update** first.
+
+After the Mac is up to date, run the onboarding command again. The script will
+start the Command Line Tools installer again if they are still missing.
+
+You can also trigger the installer manually with:
 
 ```bash
 xcode-select --install
 ```
 
-If the same error still appears, download the matching "Command Line Tools for
-Xcode" package manually from:
+If the same error still appears after all macOS updates are installed, download
+the matching "Command Line Tools for Xcode" package manually from:
 
 https://developer.apple.com/download/all/
 
