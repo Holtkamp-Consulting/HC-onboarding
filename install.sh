@@ -83,6 +83,9 @@ CASKS=(
   stats
   raycast
   google-chrome
+  citrix-workspace
+  chatgpt
+  dbeaver-community
 )
 
 for cask in "${CASKS[@]}"; do
