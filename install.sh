@@ -5,6 +5,26 @@ set -euo pipefail
 
 print_step() { echo ""; echo "▶ $1"; }
 
+require_command_line_tools() {
+  if xcode-select -p &>/dev/null; then
+    return
+  fi
+
+  print_step "Apple Command Line Tools"
+  echo "  Apple's Command Line Tools are required before Homebrew can be installed."
+  echo "  Opening Apple's installer now. Complete it, then run this onboarding command again."
+  echo ""
+  echo "  If macOS says the software is not available from the Software Update server:"
+  echo "    1. Run: sudo softwareupdate --list"
+  echo "    2. Install pending macOS updates, then retry: xcode-select --install"
+  echo "    3. If it still fails, download Command Line Tools for Xcode manually:"
+  echo "       https://developer.apple.com/download/all/"
+  echo ""
+
+  xcode-select --install || true
+  exit 1
+}
+
 install_or_upgrade() {
   local cask="$1"
   if brew list --cask "$cask" &>/dev/null; then
@@ -48,6 +68,8 @@ echo ""
 echo "╔══════════════════════════════════╗"
 echo "║   HC Onboarding — Mac Setup      ║"
 echo "╚══════════════════════════════════╝"
+
+require_command_line_tools
 
 # ── Homebrew ─────────────────────────────────────────────────────────────────
 
