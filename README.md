@@ -90,6 +90,7 @@ Remove it completely:
 launchctl bootout "gui/$(id -u)/com.holtkamp-consulting.hc-onboarding.autoupdate"
 rm -f ~/Library/LaunchAgents/com.holtkamp-consulting.hc-onboarding.autoupdate.plist
 rm -rf ~/Library/Application\ Support/HC-onboarding
+rm -f ~/Library/Logs/com.holtkamp-consulting.hc-onboarding.autoupdate.log
 ```
 
 ## Troubleshooting

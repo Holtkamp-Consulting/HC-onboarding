@@ -114,7 +114,7 @@ for cask in "${CASKS[@]}"; do
   install_or_upgrade "$cask"
 done
 
-# ── Auto-update service ─────────────────────────────────────────────────────────
+# ── Auto-update service ───────────────────────────────────────────────────────
 
 print_step "Auto-update service"
 
@@ -123,7 +123,7 @@ AUTO_UPDATE_DIR="$HOME/Library/Application Support/HC-onboarding"
 AUTO_UPDATE_SCRIPT="$AUTO_UPDATE_DIR/auto-update.sh"
 AUTO_UPDATE_PLIST="$HOME/Library/LaunchAgents/$AUTO_UPDATE_LABEL.plist"
 AUTO_UPDATE_LOG="$HOME/Library/Logs/$AUTO_UPDATE_LABEL.log"
-BREW_BIN="$(command -v brew)"
+BREW_BIN="$(command -v brew || true)"
 
 mkdir -p "$AUTO_UPDATE_DIR"
 mkdir -p "$(dirname "$AUTO_UPDATE_PLIST")"
@@ -147,13 +147,17 @@ if ! command -v brew &>/dev/null; then
 fi
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') Starting auto-update"
-brew update || true
+UPDATE_FAILED=0
+if ! brew update; then
+  echo "$(date '+%Y-%m-%d %H:%M:%S') ✗ brew update FAILED — outdated checks below may use a stale index"
+  UPDATE_FAILED=1
+fi
 
 EOF
 
 {
   echo "CASKS=("
-  printf '  %s\n' "${CASKS[@]}"
+  printf '  %q\n' "${CASKS[@]}"
   echo ")"
   echo ""
 } >> "$AUTO_UPDATE_SCRIPT"
@@ -163,12 +167,18 @@ for cask in "${CASKS[@]}"; do
   if brew list --cask "$cask" &>/dev/null; then
     if [[ -n "$(brew outdated --cask "$cask" 2>/dev/null)" ]]; then
       echo "  Upgrading $cask..."
-      brew upgrade --cask "$cask" || true
+      if brew upgrade --cask "$cask"; then
+        echo "  ✓ $cask upgraded"
+      else
+        echo "  ✗ $cask upgrade FAILED"
+        UPDATE_FAILED=1
+      fi
     fi
   fi
 done
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') Auto-update finished"
+exit "$UPDATE_FAILED"
 EOF
 
 sed -i '' "s#__BREW_BIN__#$BREW_BIN#" "$AUTO_UPDATE_SCRIPT"
@@ -206,16 +216,20 @@ cat > "$AUTO_UPDATE_PLIST" <<PLIST
 PLIST
 
 # Register idempotently: bootout (ignoring failure when nothing is loaded yet)
-# then bootstrap, so re-running this script always ends with exactly one
-# registered service and never a "service already loaded" error.
+# then bootstrap, so re-running this script never hits a "service already
+# loaded" error. On success there's exactly one registered service; if
+# bootstrap fails, the prior registration is already gone (see the warning
+# below) rather than left duplicated.
 UID_NUM="$(id -u)"
-launchctl bootout "gui/$UID_NUM/$AUTO_UPDATE_LABEL" &>/dev/null || true
+BOOTOUT_ERR="$(launchctl bootout "gui/$UID_NUM/$AUTO_UPDATE_LABEL" 2>&1)" || true
 if launchctl bootstrap "gui/$UID_NUM" "$AUTO_UPDATE_PLIST"; then
   launchctl enable "gui/$UID_NUM/$AUTO_UPDATE_LABEL"
   echo "  ✓ Auto-update service installed — runs daily at 09:00"
   echo "  Logs: $AUTO_UPDATE_LOG"
 else
   echo "  ! Failed to register auto-update service, skipping." >&2
+  [[ -n "$BOOTOUT_ERR" ]] && echo "  ! bootout said: $BOOTOUT_ERR" >&2
+  rm -f "$AUTO_UPDATE_PLIST"
 fi
 
 # ── Done ─────────────────────────────────────────────────────────────────────
