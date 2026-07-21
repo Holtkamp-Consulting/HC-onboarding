@@ -47,6 +47,51 @@ Apple ID.
 Re-running the script updates Homebrew and upgrades installed apps when newer
 versions are available.
 
+## Automatic updates
+
+The onboarding script installs a per-user LaunchAgent (macOS's native
+equivalent of a cron job) so the managed apps keep updating themselves
+without anyone re-running the onboarding command by hand.
+
+- **Schedule**: runs daily at 09:00 local time, while the Mac is awake
+  and the user is logged in.
+- **What it does**: runs `brew update`, then upgrades any of the apps
+  listed above that are already installed and outdated. It never installs
+  new apps and never needs a password.
+- **Service name**: `com.holtkamp-consulting.hc-onboarding.autoupdate`
+
+Re-running the onboarding command re-registers the service, so it never
+creates duplicates.
+
+### Check status
+
+```bash
+launchctl print "gui/$(id -u)/com.holtkamp-consulting.hc-onboarding.autoupdate"
+```
+
+View recent update activity:
+
+```bash
+tail -f ~/Library/Logs/com.holtkamp-consulting.hc-onboarding.autoupdate.log
+```
+
+### Disable or remove
+
+Stop the service (files stay in place; restarted by re-running the
+onboarding command):
+
+```bash
+launchctl bootout "gui/$(id -u)/com.holtkamp-consulting.hc-onboarding.autoupdate"
+```
+
+Remove it completely:
+
+```bash
+launchctl bootout "gui/$(id -u)/com.holtkamp-consulting.hc-onboarding.autoupdate"
+rm -f ~/Library/LaunchAgents/com.holtkamp-consulting.hc-onboarding.autoupdate.plist
+rm -rf ~/Library/Application\ Support/HC-onboarding
+```
+
 ## Troubleshooting
 
 ### Command Line Tools cannot be installed

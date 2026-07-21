@@ -114,6 +114,110 @@ for cask in "${CASKS[@]}"; do
   install_or_upgrade "$cask"
 done
 
+# ── Auto-update service ─────────────────────────────────────────────────────────
+
+print_step "Auto-update service"
+
+AUTO_UPDATE_LABEL="com.holtkamp-consulting.hc-onboarding.autoupdate"
+AUTO_UPDATE_DIR="$HOME/Library/Application Support/HC-onboarding"
+AUTO_UPDATE_SCRIPT="$AUTO_UPDATE_DIR/auto-update.sh"
+AUTO_UPDATE_PLIST="$HOME/Library/LaunchAgents/$AUTO_UPDATE_LABEL.plist"
+AUTO_UPDATE_LOG="$HOME/Library/Logs/$AUTO_UPDATE_LABEL.log"
+BREW_BIN="$(command -v brew)"
+
+mkdir -p "$AUTO_UPDATE_DIR"
+mkdir -p "$(dirname "$AUTO_UPDATE_PLIST")"
+mkdir -p "$(dirname "$AUTO_UPDATE_LOG")"
+
+# Generate the standalone unattended update script. Static parts use a quoted
+# heredoc (no expansion); the CASKS array is injected from the live array above
+# so the scheduled job can never drift out of sync with the interactive run.
+cat > "$AUTO_UPDATE_SCRIPT" <<'EOF'
+#!/bin/bash
+set -uo pipefail
+
+BREW_BIN="__BREW_BIN__"
+if [[ -x "$BREW_BIN" ]]; then
+  eval "$("$BREW_BIN" shellenv)"
+fi
+
+if ! command -v brew &>/dev/null; then
+  echo "$(date '+%Y-%m-%d %H:%M:%S') brew not found, skipping auto-update"
+  exit 0
+fi
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') Starting auto-update"
+brew update || true
+
+EOF
+
+{
+  echo "CASKS=("
+  printf '  %s\n' "${CASKS[@]}"
+  echo ")"
+  echo ""
+} >> "$AUTO_UPDATE_SCRIPT"
+
+cat >> "$AUTO_UPDATE_SCRIPT" <<'EOF'
+for cask in "${CASKS[@]}"; do
+  if brew list --cask "$cask" &>/dev/null; then
+    if [[ -n "$(brew outdated --cask "$cask" 2>/dev/null)" ]]; then
+      echo "  Upgrading $cask..."
+      brew upgrade --cask "$cask" || true
+    fi
+  fi
+done
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') Auto-update finished"
+EOF
+
+sed -i '' "s#__BREW_BIN__#$BREW_BIN#" "$AUTO_UPDATE_SCRIPT"
+chmod +x "$AUTO_UPDATE_SCRIPT"
+
+# Generate the per-user LaunchAgent plist (unquoted heredoc — variable
+# expansion is wanted; none of the interpolated values contain '$').
+cat > "$AUTO_UPDATE_PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$AUTO_UPDATE_LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>$AUTO_UPDATE_SCRIPT</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>9</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>$AUTO_UPDATE_LOG</string>
+  <key>StandardErrorPath</key>
+  <string>$AUTO_UPDATE_LOG</string>
+</dict>
+</plist>
+PLIST
+
+# Register idempotently: bootout (ignoring failure when nothing is loaded yet)
+# then bootstrap, so re-running this script always ends with exactly one
+# registered service and never a "service already loaded" error.
+UID_NUM="$(id -u)"
+launchctl bootout "gui/$UID_NUM/$AUTO_UPDATE_LABEL" &>/dev/null || true
+if launchctl bootstrap "gui/$UID_NUM" "$AUTO_UPDATE_PLIST"; then
+  launchctl enable "gui/$UID_NUM/$AUTO_UPDATE_LABEL"
+  echo "  ✓ Auto-update service installed — runs daily at 09:00"
+  echo "  Logs: $AUTO_UPDATE_LOG"
+else
+  echo "  ! Failed to register auto-update service, skipping." >&2
+fi
+
 # ── Done ─────────────────────────────────────────────────────────────────────
 
 echo ""
