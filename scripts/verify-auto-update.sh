@@ -98,6 +98,20 @@ else
     fi
   fi
 
+  # Scheduled hour must be 19:00.
+  if grep -q '<integer>19</integer>' "$auto_update_plist"; then
+    pass "plist schedules the job at 19:00 (Hour = 19)"
+  else
+    fail "plist does not schedule the job at 19:00 (expected <integer>19</integer>)"
+  fi
+
+  # brew update must retry with a Fibonacci backoff instead of a single try.
+  if grep -q 'retrying in' "$auto_update_script" && grep -q 'fib_next=$((fib_prev + fib_cur))' "$auto_update_script"; then
+    pass "auto-update.sh retries brew update with Fibonacci backoff"
+  else
+    fail "auto-update.sh is missing the Fibonacci retry loop for brew update"
+  fi
+
   bootout_count="$(grep -c '^launchctl bootout' "$calls_log" || true)"
   bootstrap_count="$(grep -c '^launchctl bootstrap' "$calls_log" || true)"
   if [[ "$bootout_count" -eq 2 && "$bootstrap_count" -eq 2 ]]; then

@@ -53,11 +53,16 @@ The onboarding script installs a per-user LaunchAgent (macOS's native
 equivalent of a cron job) so the managed apps keep updating themselves
 without anyone re-running the onboarding command by hand.
 
-- **Schedule**: runs daily at 09:00 local time, while the Mac is awake
+- **Schedule**: runs daily at 19:00 local time, while the Mac is awake
   and the user is logged in.
 - **What it does**: runs `brew update`, then upgrades any of the apps
   listed above that are already installed and outdated. It never installs
   new apps and never needs a password.
+- **Offline handling**: if the Mac is awake but offline at 19:00, `brew
+  update` is retried with a Fibonacci backoff (1, 2, 3, 5, 8, 13, 21 min,
+  ~53 min total) so a late or flaky connection is still picked up. If the
+  Mac is asleep or off at 19:00, launchd runs the missed job once on the
+  next wake instead.
 - **Service name**: `com.holtkamp-consulting.hc-onboarding.autoupdate`
 
 Re-running the onboarding command re-registers the service, so it never

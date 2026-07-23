@@ -148,10 +148,33 @@ fi
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') Starting auto-update"
 UPDATE_FAILED=0
-if ! brew update; then
-  echo "$(date '+%Y-%m-%d %H:%M:%S') ✗ brew update FAILED — outdated checks below may use a stale index"
-  UPDATE_FAILED=1
-fi
+
+# `brew update` needs the network. The Mac can be awake but offline at the
+# scheduled time (launchd fires on the clock, not on connectivity), so retry
+# with a Fibonacci backoff (1, 2, 3, 5, 8, 13, 21 min) to ride out a late or
+# flaky connection instead of giving up after a single try. Total wait across
+# all retries is ~53 min; `sleep` pauses while the Mac is asleep and resumes on
+# wake, so the backoff naturally follows the machine being reachable.
+MAX_ATTEMPTS=8
+fib_prev=1
+fib_cur=1
+attempt=1
+while true; do
+  if brew update; then
+    break
+  fi
+  if [[ "$attempt" -ge "$MAX_ATTEMPTS" ]]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') ✗ brew update FAILED after $attempt attempts — outdated checks below may use a stale index"
+    UPDATE_FAILED=1
+    break
+  fi
+  echo "$(date '+%Y-%m-%d %H:%M:%S') brew update failed (attempt $attempt/$MAX_ATTEMPTS), retrying in ${fib_cur} min"
+  sleep "$((fib_cur * 60))"
+  fib_next=$((fib_prev + fib_cur))
+  fib_prev=$fib_cur
+  fib_cur=$fib_next
+  attempt=$((attempt + 1))
+done
 
 EOF
 
@@ -201,7 +224,7 @@ cat > "$AUTO_UPDATE_PLIST" <<PLIST
   <key>StartCalendarInterval</key>
   <dict>
     <key>Hour</key>
-    <integer>9</integer>
+    <integer>19</integer>
     <key>Minute</key>
     <integer>0</integer>
   </dict>
@@ -224,7 +247,7 @@ UID_NUM="$(id -u)"
 BOOTOUT_ERR="$(launchctl bootout "gui/$UID_NUM/$AUTO_UPDATE_LABEL" 2>&1)" || true
 if launchctl bootstrap "gui/$UID_NUM" "$AUTO_UPDATE_PLIST"; then
   launchctl enable "gui/$UID_NUM/$AUTO_UPDATE_LABEL"
-  echo "  ✓ Auto-update service installed — runs daily at 09:00"
+  echo "  ✓ Auto-update service installed — runs daily at 19:00"
   echo "  Logs: $AUTO_UPDATE_LOG"
 else
   echo "  ! Failed to register auto-update service, skipping." >&2
